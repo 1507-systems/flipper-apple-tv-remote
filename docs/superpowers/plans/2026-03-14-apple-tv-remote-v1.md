@@ -10,6 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-13-apple-tv-remote-design.md`
 
+**Build note:** Individual task commits may not compile in isolation. The project is expected to compile after all of Chunk 2 is complete (Task 6). Earlier commits are logical checkpoints, not buildable milestones.
+
+**Deferred from spec (v1.1):**
+- Device name edit UI (Flipper text input widget is complex — not worth the complexity for v1; the stored `device_name` field is ready to wire up when we add it)
+- BLE advertising timeout (60s) — advertising runs until connection or app exit
+- Reconnection retry with backoff — the BLE stack handles basic reconnection; explicit retry logic deferred
+- "Re-pair" action on short-press OK when disconnected — for v1, user uses Settings > Forget Pairing to re-pair
+
 ---
 
 ## File Structure
@@ -304,7 +312,7 @@ git commit -m "feat: app entry point with BLE HID lifecycle"
 #define SETTINGS_FILE_PATH APP_DATA_PATH("config.save")
 #define SETTINGS_FILE_TYPE "Apple TV Remote Config"
 #define SETTINGS_FILE_VERSION 1
-#define DEFAULT_DEVICE_NAME "ATV Remote"
+#define DEFAULT_DEVICE_NAME "FlipperTV Remote"
 
 // Load settings from SD card. Populates defaults if file doesn't exist.
 void settings_load(AppSettings* settings);
@@ -317,6 +325,7 @@ void settings_save(const AppSettings* settings);
 
 ```c
 #include "settings_storage.h"
+#include <string.h>
 
 void settings_load(AppSettings* settings) {
     // Start with defaults
@@ -330,7 +339,7 @@ void settings_load(AppSettings* settings) {
         uint32_t version = 0;
 
         if(flipper_format_read_header(ff, filetype, &version) &&
-           furi_string_equal_str(filetype, SETTINGS_FILE_TYPE) &&
+           !furi_string_cmp_str(filetype, SETTINGS_FILE_TYPE) &&
            version == SETTINGS_FILE_VERSION) {
             // Read device name
             FuriString* name = furi_string_alloc();
@@ -436,7 +445,7 @@ static void remote_view_draw_callback(Canvas* canvas, void* model) {
 
     canvas_clear(canvas);
     canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str(canvas, 2, 12, "ATV Remote");
+    canvas_draw_str(canvas, 2, 12, "FlipperTV Remote");
 
     // Connection status
     canvas_set_font(canvas, FontSecondary);
@@ -769,19 +778,31 @@ Replace the `InputTypeRelease` branch with:
         set_key_pressed(view, event->key, false);
 
         if(event->key != InputKeyBack) {
-            // Stop volume mode if active for up/down
+            // Check if we were in volume mode for up/down
+            bool was_volume = false;
             if((event->key == InputKeyUp || event->key == InputKeyDown) &&
                state->volume_timer) {
                 furi_timer_stop(state->volume_timer);
                 with_view_model(
                     state->view,
                     RemoteViewModel * model,
-                    { model->volume_active = false; },
+                    {
+                        was_volume = model->volume_active;
+                        model->volume_active = false;
+                    },
                     true);
-                furi_hal_bt_hid_consumer_key_release_all();
+                if(was_volume) {
+                    // Volume mode was active — consumer key cleanup only,
+                    // nav key was already released when volume started
+                    furi_hal_bt_hid_consumer_key_release_all();
+                }
             }
 
-            send_nav_release(event->key);
+            // Only release nav key if we weren't in volume mode
+            // (volume activation already released the nav key)
+            if(!was_volume) {
+                send_nav_release(event->key);
+            }
         }
         consumed = true;
     }
@@ -1033,7 +1054,7 @@ git commit -m "fix: address build errors from Momentum SDK compilation"
 
 1. Launch app on Flipper — verify "BLE: Searching..." displayed
 2. On Apple TV: Settings > Remotes and Devices > Bluetooth
-3. Select "ATV Remote" — verify pairing completes
+3. Select "FlipperTV Remote" — verify pairing completes
 4. Flipper should show "BLE: Connected" + blue LED
 5. Exit app (long-press back), relaunch — verify auto-reconnect
 
