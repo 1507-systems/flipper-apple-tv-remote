@@ -1,0 +1,12 @@
+App(
+    appid="apple_tv_remote",
+    name="Apple TV Remote",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="apple_tv_remote_app",
+    stack_size=2 * 1024,
+    fap_description="Control Apple TV via BLE HID",
+    fap_category="Bluetooth",
+    fap_icon="assets/icons/remote_10px.png",
+    fap_version=(1, 0),
+    fap_author="pickleresistor",
+)
