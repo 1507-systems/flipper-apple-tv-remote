@@ -9,6 +9,7 @@
 #include <notification/notification.h>
 #include <notification/notification_messages.h>
 #include <furi_hal_bt_hid.h>
+// HID keycode defines (HID_KEYBOARD_*, HID_CONSUMER_*) used by remote_view.c
 #include <furi_hal_usb_hid.h>
 
 #define TAG "AppleTVRemote"

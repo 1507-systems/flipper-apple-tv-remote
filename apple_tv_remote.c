@@ -22,6 +22,9 @@ static void bt_status_changed(BtStatus status, void* context) {
         app->ble_state = BleStateConnected;
         notification_internal_message(app->notifications, &sequence_set_blue_255);
     } else {
+        // Intentional simplification: BtStatusOff and other non-connected states
+        // are collapsed into Advertising. If the radio is off, the UI will show
+        // "Searching..." which is misleading but acceptable for v1.
         app->ble_state = BleStateAdvertising;
         notification_internal_message(app->notifications, &sequence_reset_blue);
     }

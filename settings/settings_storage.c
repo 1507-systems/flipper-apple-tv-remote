@@ -41,6 +41,8 @@ void settings_save(const AppSettings* settings) {
     if(flipper_format_file_open_always(ff, SETTINGS_FILE_PATH)) {
         flipper_format_write_header_cstr(ff, SETTINGS_FILE_TYPE, SETTINGS_FILE_VERSION);
         flipper_format_write_string_cstr(ff, "DeviceName", settings->device_name);
+    } else {
+        FURI_LOG_E("AppleTVRemote", "Failed to save settings");
     }
 
     flipper_format_file_close(ff);
