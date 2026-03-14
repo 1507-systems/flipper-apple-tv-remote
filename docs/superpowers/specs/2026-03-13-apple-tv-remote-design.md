@@ -23,7 +23,7 @@ A Flipper Zero application that emulates an Apple TV remote using BLE HID and IR
 | 2nd gen (2010) | IR only | Phase 2 |
 | 3rd gen (2012) | IR only | Phase 2 |
 | 4th gen HD (2015) | IR + BLE | v1 (BLE), Phase 2 (IR) |
-| 4K 1st gen (2017) | BLE only | v1 |
+| 4K 1st gen (2017) | IR + BLE | v1 (BLE), Phase 2 (IR) |
 | 4K 2nd gen (2021) | BLE only | v1 |
 | 4K 3rd gen (2022) | BLE only | v1 |
 
@@ -41,14 +41,14 @@ Mode selection is user-configurable and persisted between app launches.
 The app supports configurable input modes, with **Direct Mapping** as the default:
 
 **Direct Mapping (default):**
-| Flipper Button | Short Press | Long Press (>400ms) |
+| Flipper Button | Short Press | Long Press |
 |---|---|---|
-| D-pad Up | Navigate Up | Volume Up (repeats ~2.5/sec) |
-| D-pad Down | Navigate Down | Volume Down (repeats ~2.5/sec) |
+| D-pad Up | Navigate Up | Volume Up (hold >400ms, repeats ~2.5/sec) |
+| D-pad Down | Navigate Down | Volume Down (hold >400ms, repeats ~2.5/sec) |
 | D-pad Left | Navigate Left | — |
 | D-pad Right | Navigate Right | — |
 | OK (center) | Select | — |
-| Back | Menu / Back | Exit app |
+| Back | Menu / Back | Exit app (hold >1 second) |
 
 Future input modes (e.g., visual remote layout) can be added as alternatives the user switches to from settings.
 
@@ -72,14 +72,14 @@ Future input modes (e.g., visual remote layout) can be added as alternatives the
 
 ### HID Report Descriptor
 
-Two HID usage pages in one report descriptor:
+Two HID usage pages in one composite report descriptor, separated by Report ID:
 
-- **Keyboard (Usage Page 0x07):**
+- **Report ID 1 — Keyboard (Usage Page 0x07):**
   - Arrow keys (Up, Down, Left, Right) — navigation
   - Enter — select
   - Escape — menu/back
 
-- **Consumer Control (Usage Page 0x0C):**
+- **Report ID 2 — Consumer Control (Usage Page 0x0C):**
   - Volume Increment (0xE9) — volume up
   - Volume Decrement (0xEA) — volume down
   - Play/Pause (0xCD) — future
@@ -139,7 +139,7 @@ Two HID usage pages in one report descriptor:
 
 - Clean, minimal — shows connection status and a hint of the control mapping
 - Volume indicator overlays briefly when volume is being adjusted
-- Settings accessible via a specific button combo or on launch before connecting
+- Settings accessible via long-press OK from the main screen (enters settings scene, back returns to main)
 
 ### Settings Screen
 
@@ -185,9 +185,8 @@ flipper-apple-tv-remote/
 │   │   ├── input_handler.c  # Button event routing, long-press detection
 │   │   └── input_handler.h
 │   └── ui/
-│       ├── ui_main.c        # Main screen rendering
-│       ├── ui_status.c      # Status bar / connection indicator
-│       └── ui_volume.c      # Volume overlay
+│       ├── ui_main.c        # Main screen rendering + status indicators
+│       └── ui_volume.c      # Volume overlay (has own timing state)
 ├── assets/
 │   └── icons/               # App icon for Flipper menu
 └── ir_signals/              # Phase 2: bundled .ir files
@@ -249,9 +248,74 @@ flipper-apple-tv-remote/
 - Clean build against Momentum SDK
 - License: likely MIT or GPL (check Momentum catalog norms)
 
+## App State & Scene Communication
+
+### App State Struct
+
+```c
+typedef enum {
+    AppModeBluetoothHid,
+    AppModeInfrared,  // Phase 2
+} AppMode;
+
+typedef enum {
+    BleStateDisconnected,
+    BleStateAdvertising,
+    BleStateConnected,
+} BleState;
+
+typedef struct {
+    // Core Flipper app infrastructure
+    Gui* gui;
+    ViewDispatcher* view_dispatcher;
+    SceneManager* scene_manager;
+
+    // BLE state
+    BleState ble_state;
+    bool is_bonded;
+
+    // Input state
+    bool volume_active;       // true while long-pressing up/down
+    FuriTimer* volume_timer;  // fires every 400ms for volume repeat
+
+    // Settings (persisted)
+    AppMode mode;
+    char device_name[32];
+} AppState;
+```
+
+### Scene Communication
+
+Scenes communicate via the `SceneManager` custom event system — scenes post events to `ViewDispatcher`, which routes them to the active scene's event handler. The `AppState` struct is passed through the app context pointer, accessible from any scene via `scene_manager_get_context()`.
+
+### Settings Persistence
+
+- **File path:** `APP_DATA_PATH("settings.save")`
+- **Format:** FlipperFormat (`.save` extension, human-readable key-value)
+- **Fields stored:**
+  - `Mode` — `BLE` or `IR`
+  - `DeviceName` — BLE advertising name (default: "FlipperTV Remote")
+- Bond data is managed by the Flipper BLE stack internally, not by the app
+
+### App Lifecycle & Resource Cleanup
+
+On app exit (long-press Back or system exit):
+1. Stop volume repeat timer if active
+2. If BLE is advertising or connected: disconnect and restore previous BLE profile via `bt_disconnect()` and `bt_set_profile()` to return to Flipper's default Serial profile
+3. Free all allocated views, scene manager, view dispatcher
+4. Release GUI record
+
+This ensures the app leaves no BLE resources dangling that would interfere with other Flipper functionality.
+
+### Pairing Resilience
+
+If the Apple TV does not discover the Flipper during initial advertising:
+- The main screen shows a "Re-pair" option (short-press OK when disconnected) that restarts BLE advertising
+- Advertising timeout: 60 seconds, then returns to Disconnected state with prompt to retry
+- If a bond exists but connection fails, the app attempts reconnection 3 times with 2-second intervals before falling back to Disconnected
+
 ## Open Questions
 
 1. **App name for catalog:** "FlipperTV Remote"? "Apple TV Remote"? Need something descriptive but not trademark-infringing
-2. **BLE advertising during normal Flipper use:** Need to ensure the app properly releases BLE resources on exit so it doesn't interfere with other Flipper BLE functionality
-3. **Apple TV firmware variations:** Confirm HID keyboard arrow keys work consistently across tvOS versions
-4. **Momentum SDK version pinning:** Which minimum Momentum version to target?
+2. **Apple TV firmware variations:** Confirm HID keyboard arrow keys work consistently across tvOS versions
+3. **Momentum SDK version pinning:** Which minimum Momentum version to target?
