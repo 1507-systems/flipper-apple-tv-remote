@@ -51,9 +51,8 @@ static void remote_view_draw_callback(Canvas* canvas, void* model) {
     canvas_draw_str(canvas, 72, 44, m->right_pressed ? "[>]" : " > ");
     canvas_draw_str(canvas, 58, 54, m->down_pressed ? "[v]" : " v ");
 
-    // Volume indicator overlay
+    // Volume indicator overlay (font already FontSecondary)
     if(m->volume_active) {
-        canvas_set_font(canvas, FontSecondary);
         canvas_draw_str(canvas, 90, 34, "VOL");
     }
 
@@ -161,7 +160,9 @@ static bool remote_view_input_callback(InputEvent* event, void* context) {
 
     if(event->type == InputTypePress) {
         set_key_pressed(view, event->key, true);
-        if(event->key != InputKeyBack) {
+        // Don't send nav press for Back (handled via Short/Long) or Ok
+        // (deferred to Short to avoid leaking RETURN on long-press → settings)
+        if(event->key != InputKeyBack && event->key != InputKeyOk) {
             send_nav_press(event->key);
         }
         consumed = true;
@@ -169,7 +170,7 @@ static bool remote_view_input_callback(InputEvent* event, void* context) {
     } else if(event->type == InputTypeRelease) {
         set_key_pressed(view, event->key, false);
 
-        if(event->key != InputKeyBack) {
+        if(event->key != InputKeyBack && event->key != InputKeyOk) {
             // Check if we were in volume mode for up/down
             bool was_volume = false;
             if((event->key == InputKeyUp || event->key == InputKeyDown) &&
@@ -196,8 +197,15 @@ static bool remote_view_input_callback(InputEvent* event, void* context) {
 
     } else if(event->type == InputTypeShort) {
         if(event->key == InputKeyBack) {
+            // Short back = send Menu/Escape to Apple TV
             furi_hal_bt_hid_kb_press(HID_KEYBOARD_ESCAPE);
             furi_hal_bt_hid_kb_release(HID_KEYBOARD_ESCAPE);
+            consumed = true;
+        } else if(event->key == InputKeyOk) {
+            // Short OK = send Select/Return to Apple TV
+            // (deferred from Press to avoid leaking RETURN on long-press → settings)
+            furi_hal_bt_hid_kb_press(HID_KEYBOARD_RETURN);
+            furi_hal_bt_hid_kb_release(HID_KEYBOARD_RETURN);
             consumed = true;
         }
 
@@ -228,6 +236,24 @@ static bool remote_view_input_callback(InputEvent* event, void* context) {
     return consumed;
 }
 
+/* ---------- View enter/leave callbacks ---------- */
+
+// Stop volume timer and release all HID keys when leaving the remote view
+// (e.g., navigating to settings while volume is active)
+static void remote_view_leave_callback(void* context) {
+    RemoteViewState* state = context;
+    if(state->volume_timer) {
+        furi_timer_stop(state->volume_timer);
+    }
+    with_view_model(
+        state->view,
+        RemoteViewModel * model,
+        { model->volume_active = false; },
+        false); // no redraw needed — we're leaving the view
+    furi_hal_bt_hid_kb_release_all();
+    furi_hal_bt_hid_consumer_key_release_all();
+}
+
 /* ---------- Alloc / Free / State setters ---------- */
 
 View* remote_view_alloc(App* app) {
@@ -237,12 +263,14 @@ View* remote_view_alloc(App* app) {
     view_set_input_callback(view, remote_view_input_callback);
 
     // Allocate internal state and attach to view context
+    // (must be done before setting exit callback since it uses context)
     RemoteViewState* state = malloc(sizeof(RemoteViewState));
     state->app = app;
     state->view = view;
     state->volume_key = InputKeyUp;
     state->volume_timer = furi_timer_alloc(volume_timer_callback, FuriTimerTypePeriodic, state);
     view_set_context(view, state);
+    view_set_exit_callback(view, remote_view_leave_callback);
 
     // Initialize model defaults
     with_view_model(
