@@ -22,7 +22,10 @@ static void settings_submenu_callback(void* context, uint32_t index) {
             furi_record_close(RECORD_STORAGE);
         }
 
-        // Restart advertising so user can re-pair
+        // Re-initialize the HID profile to restart advertising cleanly
+        // (using service layer rather than direct HAL call to ensure
+        // bond database is properly reset after key deletion)
+        bt_set_profile(app->bt, BtProfileHidKeyboard);
         furi_hal_bt_start_advertising();
         app->ble_state = BleStateAdvertising;
         remote_view_set_ble_state(app->remote_view, app->ble_state);
