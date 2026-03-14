@@ -1093,14 +1093,25 @@ git commit -m "docs: record manual test results"
 
 ### Task 13: Create GitHub repository
 
-- [ ] **Step 1: Create private repo and push**
+- [ ] **Step 1: Add GPL-2.0 license**
+
+Create a `LICENSE` file with the GPL-2.0 text:
 
 ```bash
 cd "/Users/pickleresistor/Library/Mobile Documents/com~apple~CloudDocs/Developer/flipper-apple-tv-remote"
-gh repo create 1507-systems/flipper-apple-tv-remote --private --source=. --push
+curl -sL https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt > LICENSE
+git add LICENSE
+git commit -m "chore: add GPL-2.0 license"
 ```
 
-- [ ] **Step 2: Verify**
+- [ ] **Step 2: Create public repo and push**
+
+```bash
+gh repo create 1507-systems/flipper-apple-tv-remote --public --source=. --push \
+    --description "Apple TV remote for Flipper Zero — BLE HID + IR (Momentum firmware)"
+```
+
+- [ ] **Step 3: Verify**
 
 ```bash
 gh repo view 1507-systems/flipper-apple-tv-remote

@@ -246,7 +246,7 @@ flipper-apple-tv-remote/
 - README with description, screenshots, usage instructions
 - No hardcoded paths or device-specific assumptions
 - Clean build against Momentum SDK
-- License: likely MIT or GPL (check Momentum catalog norms)
+- License: GPL-2.0 (matches Momentum firmware license)
 
 ## App State & Scene Communication
 
