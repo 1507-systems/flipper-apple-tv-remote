@@ -96,3 +96,35 @@ The following steps require a physical Flipper Zero running Momentum firmware an
 4. Deploy to Flipper, run hardware test checklist in README
 5. Tag release: git tag v1.0.0 and git push origin v1.0.0
 6. Submit to Momentum App Catalog (PR to Next-Flip/flipper-application-catalog)
+
+---
+
+## 2026-03-22 — CI Setup (Marathon)
+
+### What Was Done
+
+Set up continuous integration for the project:
+
+1. Created `.github/workflows/ci.yml` with minimal validation workflow
+   - Triggers on push to main and pull requests to main
+   - Runs simple file validation job on ubuntu-latest
+2. Committed and pushed to `feat/setup-ci` branch
+3. Created PR #1: "ci: add CI workflow"
+4. Enabled branch protection on main branch
+   - Requires status checks to pass before merge
+   - Strict mode enabled
+   - No forced push allowed
+
+### Current State
+
+- Workflow file: `.github/workflows/ci.yml` created and committed
+- PR #1 open: https://github.com/1507-systems/flipper-apple-tv-remote/pull/1
+- Branch protection: enabled on main
+- Repository now enforces PR-based workflow with CI validation
+
+### Notes
+
+This is a minimal CI setup appropriate for a Flipper Zero app (firmware/binary project without traditional tests). The validation step ensures repository integrity. Future enhancements could include:
+- Build verification (once Momentum environment is available)
+- Linting for C code
+- License compliance checks
