@@ -1,3 +1,4 @@
+<!-- summary: Apple TV remote app for Flipper Zero using BLE HID with navigation, play/pause, and volume controls. -->
 # Apple TV Remote — Project Log
 
 ## 2026-03-14 — v1 Code Complete
