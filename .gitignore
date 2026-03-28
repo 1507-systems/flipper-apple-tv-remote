@@ -1,0 +1,16 @@
+.DS_Store
+*.swp
+*.swo
+*.log
+
+# Build artifacts
+*.o
+*.a
+*.so
+build/
+dist/
+.pio/
+
+# IDE
+.vscode/
+.idea/
