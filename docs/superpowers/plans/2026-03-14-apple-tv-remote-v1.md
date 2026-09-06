@@ -1020,7 +1020,7 @@ git commit -m "fix: resolve compilation issues"
 git clone --recursive https://github.com/Next-Flip/Momentum-Firmware.git ~/Momentum-Firmware
 
 # Symlink our app into the firmware build tree
-ln -s "/Users/pickleresistor/Library/Mobile Documents/com~apple~CloudDocs/Developer/flipper-apple-tv-remote" \
+ln -s "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Developer/flipper-apple-tv-remote" \
     ~/Momentum-Firmware/applications_user/apple_tv_remote
 
 # Build the FAP
@@ -1098,7 +1098,7 @@ git commit -m "docs: record manual test results"
 Create a `LICENSE` file with the GPL-2.0 text:
 
 ```bash
-cd "/Users/pickleresistor/Library/Mobile Documents/com~apple~CloudDocs/Developer/flipper-apple-tv-remote"
+cd "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Developer/flipper-apple-tv-remote"
 curl -sL https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt > LICENSE
 git add LICENSE
 git commit -m "chore: add GPL-2.0 license"
